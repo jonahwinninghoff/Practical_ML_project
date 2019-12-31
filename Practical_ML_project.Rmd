@@ -1,0 +1,89 @@
+---
+title: "Practical Machine learning course project"
+author: "Fabio Ruggeri"
+output:
+  html_document: default
+---
+
+# Project description
+## Introduction
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+## Data
+The training data for this project are available here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+The test data are available here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. 
+
+## Assignment
+The goal of the project consists in predicting the manner in which they did the exercise. To this aim, we should make reference to "classe" variable in the training set, even though it is possible to use also any of the other variables to predict with. After the analysis, a report will be created describing how to built the model, how use cross validation, the expected out of sample error, and why I made the choices I did. Finally, I will also use my best prediction model to predict 20 different test cases, whose results will be used in the final quiz.
+
+# Getting and Cleaning Data
+Initially, I load the packages useful for the analysis
+```{r, message=FALSE, warning=FALSE}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+library(rattle)
+library(randomForest)
+library(knitr)
+```
+
+I load the data (files must be in the working directory)
+```{r echo=TRUE}
+training_data <- read.csv("pml-training.csv")
+testing_data <- read.csv("pml-testing.csv")
+inTrain <- createDataPartition(training_data$classe, p=0.6, list=FALSE)
+myTraining <- training_data[inTrain, ]
+myTesting <- training_data[-inTrain, ]
+```
+
+I 'clean' the data, for example removing variables with nearly zero variance or NA values
+```{r echo=TRUE}
+nzv <- nearZeroVar(myTraining)
+myTraining <- myTraining[, -nzv]
+myTesting <- myTesting[, -nzv]
+
+mostlyNA <- sapply(myTraining, function(x) mean(is.na(x))) > 0.95
+myTrainig <- myTraining[, mostlyNA==F]
+myTesting <- myTesting[, mostlyNA==F]
+
+myTraining <- myTrainig[, -(1:5)]
+myTesting  <- myTesting[, -(1:5)]
+head(myTraining)
+head(myTesting)
+```
+
+# Data prediction
+In order to perform this step, I will use two different models, then I compare their accuracy. According to this result, I will choose the best one for the final prediction.
+
+## 1. Random forest
+```{r echo=TRUE}
+modFit <- randomForest(classe ~ ., data=myTraining)
+modFit
+
+# Prediction using Random forest
+predict <- predict(modFit, myTesting, type="class")
+confusionMatrix(myTesting$classe, predict)
+```
+
+## 2. Decision tree
+```{r echo=TRUE}
+modFit_T <- rpart(classe~., myTraining)
+
+# Prediction using Decision tree
+predict_T <- predict(modFit_T, myTesting, type="class")
+confusionMatrix(myTesting$classe, predict_T)
+```
+
+# Error and Cross validation
+Random forest and Decision tree models give 99.8 % and 73.0 % as accuracy, respectively.
+The expected sample errors for Random forest and Decision tree are thus 0.2 % and 27.0 %, respectively.
+For the successive step, I will choose Random forest.
+
+# Final test
+I run the algorithm to the 20 cases in the test data using the most accurate model Random forest. These results will be used in the final quiz in Coursera.
+```{r echo=TRUE}
+predict_test <- predict(modFit, testing_data, type = "class")
+predict_test
+```
